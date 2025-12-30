@@ -20,6 +20,6 @@ uvicorn fastapi_llm:app --reload
 ## Endpointi
 
 - `POST /chat` - posalji poruku AI-ju
-- `GET /history` - chat istorija
+- `GET /history` - chat historija
 - `DELETE /history` - obrisi istoriju
 - `GET /stats` - statistike

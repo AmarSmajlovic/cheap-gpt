@@ -129,8 +129,8 @@ async def chat(request: ChatRequest, req: Request, db: Session = Depends(get_db)
     )
 
 
-@app.get("/history", response_model=List[ChatHistory])
-def get_history(req: Request, limit: int = 20, db: Session = Depends(get_db)):
+@app.get("/history", response_model=List[ChatHistory], summary="Dohvati historiju", description="Dohvati historiju chat poruka")
+def get_historija(req: Request, limit: int = 20, db: Session = Depends(get_db)):
     ip = get_client_ip(req)
     return db.query(ChatMessage)\
              .filter(ChatMessage.ip_address == ip)\
@@ -139,8 +139,8 @@ def get_history(req: Request, limit: int = 20, db: Session = Depends(get_db)):
              .all()
 
 
-@app.delete("/history")
-def clear_history(req: Request, db: Session = Depends(get_db)):
+@app.delete("/history", summary="Obriši historiju", description="Obriši sve chat poruke iz historije")
+def obrisi_historiju(req: Request, db: Session = Depends(get_db)):
     ip = get_client_ip(req)
     deleted = db.query(ChatMessage).filter(ChatMessage.ip_address == ip).delete()
     db.commit()
