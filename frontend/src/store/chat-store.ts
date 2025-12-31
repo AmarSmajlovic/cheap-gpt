@@ -28,6 +28,37 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     error: null,
     sidebarOpen: true,
     failedMessage: null,
+    selectedModel: 'auto',
+    availableModels: [],
+
+    /**
+     * Load available models from backend
+     */
+    loadModels: async () => {
+        try {
+            const response = await chatApi.getModels();
+            set({
+                availableModels: response.models,
+                selectedModel: response.default,
+            });
+        } catch (error) {
+            console.error('Failed to load models:', error);
+            // Set default models if API fails
+            set({
+                availableModels: [
+                    { id: 'auto', name: 'Auto', description: 'Automatic selection', available: true }
+                ],
+                selectedModel: 'auto',
+            });
+        }
+    },
+
+    /**
+     * Set selected model
+     */
+    setSelectedModel: (modelId: string) => {
+        set({ selectedModel: modelId });
+    },
 
     /**
      * Send a message to the AI
@@ -57,13 +88,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }));
 
         try {
-            const response = await chatApi.sendMessage(trimmedContent);
+            const { selectedModel } = get();
+            const response = await chatApi.sendMessage(trimmedContent, selectedModel);
 
             const assistantMessage: Message = {
                 id: generateId(),
                 role: 'assistant',
                 content: response.ai_response,
                 timestamp: new Date(response.timestamp),
+                modelUsed: response.model_used,
             };
 
             // Add assistant message

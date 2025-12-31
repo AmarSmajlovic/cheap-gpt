@@ -6,3 +6,8 @@ httpx>=0.25.0
 python-dotenv>=1.0.0
 huggingface-hub>=0.20.0
 psycopg2-binary>=2.9.0
+
+# LangChain for multi-LLM support
+langchain>=0.3.0
+langchain-google-genai>=2.0.0
+langchain-core>=0.3.0

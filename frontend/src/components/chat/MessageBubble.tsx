@@ -59,11 +59,16 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
                 <div
                     className={cn(
-                        "text-[10px] md:text-xs mt-1.5 md:mt-2 opacity-60",
-                        isUser ? "text-right" : "text-left"
+                        "text-[10px] md:text-xs mt-1.5 md:mt-2 opacity-60 flex items-center gap-2",
+                        isUser ? "justify-end" : "justify-start"
                     )}
                 >
-                    {formatTimestamp(message.timestamp)}
+                    <span>{formatTimestamp(message.timestamp)}</span>
+                    {!isUser && message.modelUsed && (
+                        <span className="bg-muted px-1.5 py-0.5 rounded text-[9px] md:text-[10px] font-medium">
+                            {message.modelUsed}
+                        </span>
+                    )}
                 </div>
             </div>
         </motion.div>

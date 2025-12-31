@@ -9,6 +9,7 @@ export interface Message {
     content: string;
     timestamp: Date;
     isLoading?: boolean;
+    modelUsed?: string;
 }
 
 export interface ChatState {
@@ -18,6 +19,10 @@ export interface ChatState {
     sidebarOpen: boolean;
     /** Message content that failed to send, preserved for retry */
     failedMessage: string | null;
+    /** Currently selected model */
+    selectedModel: string;
+    /** Available models from backend */
+    availableModels: ModelOption[];
 }
 
 export interface ChatActions {
@@ -30,6 +35,10 @@ export interface ChatActions {
     retryFailedMessage: () => Promise<void>;
     /** Clear the failed message without retrying */
     clearFailedMessage: () => void;
+    /** Set selected model */
+    setSelectedModel: (modelId: string) => void;
+    /** Load available models from backend */
+    loadModels: () => Promise<void>;
 }
 
 // API Response types (matching backend)
@@ -37,6 +46,7 @@ export interface ChatResponse {
     user_message: string;
     ai_response: string;
     timestamp: string;
+    model_used?: string;
 }
 
 export interface HistoryItem {
@@ -49,8 +59,14 @@ export interface HistoryItem {
 export interface ModelOption {
     id: string;
     name: string;
-    provider: string;
+    description?: string;
+    best_for?: string;
     available: boolean;
+}
+
+export interface ModelsResponse {
+    default: string;
+    models: ModelOption[];
 }
 
 // Combined store type

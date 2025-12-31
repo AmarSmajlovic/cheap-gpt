@@ -4,11 +4,12 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from typing import List
+from typing import List, Optional
 import os
 from datetime import datetime
 from dotenv import load_dotenv
-from huggingface_hub import InferenceClient
+from llm_router import get_llm_router
+from providers import GEMINI_MODELS
 
 load_dotenv()
 
@@ -31,12 +32,14 @@ class ChatMessage(Base):
 
 class ChatRequest(BaseModel):
     message: str
+    model: str = "auto"
 
 
 class ChatResponse(BaseModel):
     user_message: str
     ai_response: str
     timestamp: datetime
+    model_used: Optional[str] = None
 
 
 class ChatHistory(BaseModel):
@@ -75,34 +78,6 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-async def get_ai_response(message: str) -> str:
-    provider = os.getenv("AI_PROVIDER", "mock").lower()
-    
-    if provider == "huggingface":
-        return await call_huggingface(message)
-    return f"Mock: {message}"
-
-
-async def call_huggingface(message: str) -> str:
-    try:
-        token = os.getenv("HUGGINGFACE_API_KEY", "")
-        if not token:
-            return "HuggingFace token missing"
-        
-        client = InferenceClient(api_key=token)
-        response = client.chat.completions.create(
-            model="meta-llama/Llama-3.1-70B-Instruct",
-            messages=[{"role": "user", "content": message}],
-            max_tokens=500
-        )
-        
-        if response and response.choices:
-            return response.choices[0].message.content
-        return "No response"
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
 @app.get("/")
 def root():
     return {"message": "LLM Chatbot API", "docs": "/docs"}
@@ -111,7 +86,9 @@ def root():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, req: Request, db: Session = Depends(get_db)):
     ip = get_client_ip(req)
-    ai_response = await get_ai_response(request.message)
+    
+    router = get_llm_router()
+    ai_response, model_used = await router.invoke(request.message, request.model)
     
     record = ChatMessage(
         user_message=request.message,
@@ -125,12 +102,13 @@ async def chat(request: ChatRequest, req: Request, db: Session = Depends(get_db)
     return ChatResponse(
         user_message=request.message,
         ai_response=ai_response,
-        timestamp=record.timestamp
+        timestamp=record.timestamp,
+        model_used=model_used
     )
 
 
-@app.get("/history", response_model=List[ChatHistory], summary="Dohvati historiju", description="Dohvati historiju chat poruka")
-def get_historija(req: Request, limit: int = 20, db: Session = Depends(get_db)):
+@app.get("/history", response_model=List[ChatHistory])
+def get_history(req: Request, limit: int = 20, db: Session = Depends(get_db)):
     ip = get_client_ip(req)
     return db.query(ChatMessage)\
              .filter(ChatMessage.ip_address == ip)\
@@ -139,8 +117,8 @@ def get_historija(req: Request, limit: int = 20, db: Session = Depends(get_db)):
              .all()
 
 
-@app.delete("/history", summary="Obriši historiju", description="Obriši sve chat poruke iz historije")
-def obrisi_historiju(req: Request, db: Session = Depends(get_db)):
+@app.delete("/history")
+def delete_history(req: Request, db: Session = Depends(get_db)):
     ip = get_client_ip(req)
     deleted = db.query(ChatMessage).filter(ChatMessage.ip_address == ip).delete()
     db.commit()
@@ -149,8 +127,39 @@ def obrisi_historiju(req: Request, db: Session = Depends(get_db)):
 
 @app.get("/stats")
 def get_stats(db: Session = Depends(get_db)):
+    router = get_llm_router()
     return {
         "total_messages": db.query(ChatMessage).count(),
         "unique_users": db.query(ChatMessage.ip_address).distinct().count(),
-        "provider": os.getenv("AI_PROVIDER", "mock")
+        "provider": "gemini",
+        "available_models": router.get_available_models()
+    }
+
+
+@app.get("/models")
+def get_models():
+    router = get_llm_router()
+    available = router.get_available_models()
+    
+    models = [
+        {
+            "id": "auto",
+            "name": "Auto (Smart Selection)",
+            "description": "Automatically selects best model based on query",
+            "available": len(available) > 0
+        }
+    ]
+    
+    for model_id, config in GEMINI_MODELS.items():
+        models.append({
+            "id": model_id,
+            "name": config.name,
+            "description": config.description,
+            "best_for": config.best_for,
+            "available": model_id in available
+        })
+    
+    return {
+        "default": "auto",
+        "models": models
     }

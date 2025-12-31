@@ -3,7 +3,7 @@
  * Requirements: 1.1, 3.1, 3.3, 6.1, 6.4
  */
 
-import type { ChatResponse, HistoryItem } from '@/types';
+import type { ChatResponse, HistoryItem, ModelsResponse } from '@/types';
 
 //test
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -72,12 +72,19 @@ export const chatApi = {
      * Send a message to the chat endpoint
      * Requirements: 1.1
      */
-    sendMessage: async (message: string): Promise<ChatResponse> => {
+    sendMessage: async (message: string, model: string = 'auto'): Promise<ChatResponse> => {
         return fetchWithTimeout<ChatResponse>(`${API_BASE}/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message }),
+            body: JSON.stringify({ message, model }),
         });
+    },
+
+    /**
+     * Get available models from the backend
+     */
+    getModels: async (): Promise<ModelsResponse> => {
+        return fetchWithTimeout<ModelsResponse>(`${API_BASE}/models`);
     },
 
     /**
